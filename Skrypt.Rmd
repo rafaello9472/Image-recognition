@@ -1,0 +1,131 @@
+---
+title: "Image recognition"
+output: html_document
+---
+```{r Setting the path with images}
+# Ustawianie globalnej ścieżki dla całego dokumentu - wszystkie bloki kodu będą ją miały ustawioną
+knitr::opts_knit$set(root.dir = "~/Users/rafalmanda/Desktop/Studia Magisterka/Data Science - materiały/Image recognition")
+
+```
+
+```{r Loading  required packages}
+# Ładowanie pakietu keras do deep learningu oraz EBImage do operowania obrazami
+library(keras)
+library(EBImage)
+
+# Wczytanie i wyświetlenie przykładowego obrazka
+image <- EBImage::readImage('gruszka1.jpg')
+EBImage::display(image)
+```
+
+```{r Creating vector of image names and loading it into R}
+# Tworzenie wektora z nazwami
+pics <- c('gruszka1.jpg', 'gruszka2.jpg', 'gruszka3.jpg', 'gruszka4.jpg', 'gruszka5.jpg', 
+          'gruszka6.jpeg', 'gruszka7.jpeg', 'gruszka8.jpg', 'gruszka9.jpg', 'gruszka10.jpg', 
+          'jablko1.jpg', 'jablko2.jpg', 'jablko3.jpg', 'jablko4.jpg', 'jablko5.jpg',
+          'jablko6.jpg', 'jablko7.jpg', 'jablko8.jpg', 'jablko9.jpg', 'jablko10.jpg')
+
+# Tworzenie pustej listy
+mypics <- list()
+
+# Wczytanie wszystkich obrazków
+for (i in 1:20){mypics[[i]] <- readImage(pics[i])}
+
+# Sprawdzanie struktury i wyświetlanie przykładowego obrazka
+str(mypics)
+EBImage::display(mypics[[14]])
+```
+
+```{r Normalizing shape}
+# Zmiana kształtu, tak aby każdy obraz miał rozmiar 28 na 28 pikseli
+for (i in 1:20){mypics[[i]] <- resize(mypics[[i]],28,28)}
+str(mypics)
+EBImage::display(mypics[[14]])
+```
+
+
+```{r Changing structure of image }
+# Zmiana struktury obrazka, rozłożenie na 3 warstwy, każdy z nich opisuje natężenie barw kolorów RGB 
+for (i in 1:20) {mypics[[i]] <- array_reshape(mypics[[i]],c(28,28,3))}
+str(mypics)
+EBImage::display(mypics[[14]])
+```
+
+
+
+```{r Creating train set}
+# Wybranie 8 pierwszych gruszek
+X_train <- NULL
+for (i in 1:8){X_train <- rbind(X_train, mypics[[i]])} # first 8 planes
+str(X_train)
+
+# Dodanie 8 jabłek
+for (i in 11:18){X_train <- rbind(X_train, mypics[[i]])} # first 8 cars
+str(X_train)
+```
+
+```{r Creating test set and adding categories}
+# Wrzucenie pozostałych danych do zbioru testowego
+X_test <- rbind(mypics[[9]], mypics[[10]], mypics[[19]], mypics[[20]])
+str(X_test)
+
+# Przypisanie klas
+y_train <- c(0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1) # 0 <- gruszka; 1 <- jabłko
+y_test <- c(0,0,1,1)
+
+# Konwersja zmiennych numerycznych na kategoryczne 
+trainLabels <- to_categorical(y_train)
+testLabels <- to_categorical(y_test)
+```
+
+```{r Building model}
+# Inicjalizacja modelu
+model <- keras_model_sequential()
+
+# Określenie ilości oraz rodzaju warstw modelu
+model %>%
+  layer_dense(units = 256, activation = 'relu', input_shape = c(2352)) %>%
+  layer_dense(units = 128, activation = 'relu') %>%
+  layer_dense(units = 2, activation = 'softmax')
+
+# Wyświetlenie modelu
+summary(model)
+
+# Ustalenie zmiennej learning rate, odpowiedzialnej za "szybkość" uczenia się
+sgd <- optimizer_sgd(lr = 0.01)
+
+# Kompilacja modelu
+model %>%
+  compile(loss = 'binary_crossentropy',
+          optimizer=sgd,
+          metrics = 'accuracy')
+
+# Dopasowanie modelu do danych
+fitModel <- model %>%
+  fit(X_train,
+      trainLabels,
+      epochs = 30,
+      batch_size = 32,
+      validation_split = 0.2)
+
+plot(fitModel)
+
+# Ocena modelu oraz predykcje na danych treningowych
+model %>% evaluate(X_train, trainLabels)
+
+pred <- model %>% predict_classes(X_train)
+table(Predicted = pred, Actual = y_train)
+
+prob <- model %>% predict_proba(X_train)
+cbind(prob, Predited = pred, Actual = y_train)
+
+
+# Ocena modelu oraz predykcje na danych testowych
+pred <- model %>% predict_classes(X_test)
+
+table(Predicted = pred, Actual = y_test)
+
+
+# display(mypics[[10]])
+```
+
